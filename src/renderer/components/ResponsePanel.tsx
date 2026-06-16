@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
+import { html as htmlLang } from '@codemirror/lang-html'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { Copy, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { isHtmlResponse, buildPreviewDoc } from '../lib/previewDoc'
 
 function statusColor(status: number): string {
   if (status >= 500) return 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -19,14 +21,27 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-type Tab = 'body' | 'headers'
+type Tab = 'preview' | 'body' | 'headers'
 
 export default function ResponsePanel() {
   const response = useStore((s) => s.response)
   const responseError = useStore((s) => s.responseError)
   const isLoading = useStore((s) => s.isLoading)
+  const url = useStore((s) => s.currentRequest.url)
   const [tab, setTab] = useState<Tab>('body')
   const [copied, setCopied] = useState(false)
+
+  const contentType = useMemo(
+    () => response?.headers.find((h) => h.key.toLowerCase() === 'content-type')?.value,
+    [response]
+  )
+
+  const isJson = useMemo(() => contentType?.includes('json') ?? false, [contentType])
+
+  const isHtml = useMemo(
+    () => (response ? isHtmlResponse(contentType, response.body) : false),
+    [response, contentType]
+  )
 
   const prettyBody = useMemo(() => {
     if (!response?.body) return ''
@@ -37,11 +52,17 @@ export default function ResponsePanel() {
     }
   }, [response?.body])
 
-  const isJson = useMemo(() => {
-    if (!response) return false
-    const ct = response.headers.find((h) => h.key.toLowerCase() === 'content-type')
-    return ct?.value.includes('json') ?? false
-  }, [response])
+  const previewDoc = useMemo(
+    () => (isHtml && response ? buildPreviewDoc(response.body, url) : ''),
+    [isHtml, response, url]
+  )
+
+  // When a new response arrives, default HTML pages to the rendered Preview;
+  // otherwise show the raw Body. Also bounce off Preview if it's no longer HTML.
+  useEffect(() => {
+    if (!response) return
+    setTab(isHtml ? 'preview' : 'body')
+  }, [response, isHtml])
 
   const handleCopy = async () => {
     if (!response) return
@@ -49,6 +70,10 @@ export default function ResponsePanel() {
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
+
+  const tabs: Tab[] = isHtml ? ['preview', 'body', 'headers'] : ['body', 'headers']
+  const tabLabel = (t: Tab): string =>
+    t === 'preview' ? 'Preview' : t === 'body' ? 'Body' : `Headers (${response?.headers.length ?? 0})`
 
   return (
     <div className="flex flex-col h-full border-t border-hair">
@@ -68,7 +93,7 @@ export default function ResponsePanel() {
             <span className="text-xs text-slate-500 font-mono">{response.durationMs}ms</span>
             <span className="text-xs text-slate-500 font-mono">{formatSize(response.sizeBytes)}</span>
             <div className="ml-2 flex gap-1">
-              {(['body', 'headers'] as Tab[]).map((t) => (
+              {tabs.map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -78,7 +103,7 @@ export default function ResponsePanel() {
                       : 'text-ink-dim hover:text-ink'
                   }`}
                 >
-                  {t === 'body' ? 'Body' : `Headers (${response.headers.length})`}
+                  {tabLabel(t)}
                 </button>
               ))}
             </div>
@@ -111,13 +136,21 @@ export default function ResponsePanel() {
       <div className="flex-1 overflow-hidden">
         {response && !isLoading && (
           <>
+            {tab === 'preview' && (
+              <iframe
+                title="Response preview"
+                sandbox=""
+                srcDoc={previewDoc}
+                className="w-full h-full border-0 bg-white"
+              />
+            )}
             {tab === 'body' && (
               <CodeMirror
                 value={prettyBody}
                 theme={oneDark}
-                extensions={isJson ? [json()] : []}
+                extensions={isJson ? [json()] : isHtml ? [htmlLang()] : []}
                 editable={false}
-                basicSetup={{ lineNumbers: true, foldGutter: isJson }}
+                basicSetup={{ lineNumbers: true, foldGutter: isJson || isHtml }}
                 style={{ height: '100%' }}
                 className="h-full"
               />
