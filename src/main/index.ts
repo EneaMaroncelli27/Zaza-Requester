@@ -2,6 +2,10 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
 
+// Fixes black/blank window on many Linux GPU/compositor setups.
+// Must be called before app is ready.
+app.disableHardwareAcceleration()
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -10,6 +14,7 @@ function createWindow(): void {
     minHeight: 600,
     title: 'ZazaRequester',
     backgroundColor: '#0f172a',
+    show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -18,14 +23,19 @@ function createWindow(): void {
     }
   })
 
+  // Show only once the renderer has painted — avoids a blank/black flash.
+  win.once('ready-to-show', () => {
+    win.show()
+  })
+
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  if (process.env['NODE_ENV'] === 'development') {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL']!)
-    win.webContents.openDevTools({ mode: 'detach' })
+  const devUrl = process.env['ELECTRON_RENDERER_URL']
+  if (devUrl) {
+    win.loadURL(devUrl)
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
