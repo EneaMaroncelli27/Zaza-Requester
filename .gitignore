@@ -6,3 +6,6 @@ dist/
 
 # Build artifacts
 release/
+
+# TS build cache
+*.tsbuildinfo
