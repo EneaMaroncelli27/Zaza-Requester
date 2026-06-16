@@ -24,8 +24,12 @@ export default function App() {
     <div className="flex h-screen bg-slate-900 overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <RequestPanel />
-        <ResponsePanel />
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <RequestPanel />
+        </div>
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <ResponsePanel />
+        </div>
       </div>
     </div>
   )
