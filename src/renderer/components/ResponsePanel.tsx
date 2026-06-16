@@ -3,7 +3,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { html as htmlLang } from '@codemirror/lang-html'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Code2, ShieldCheck } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { isHtmlResponse, buildPreviewDoc } from '../lib/previewDoc'
 
@@ -30,6 +30,11 @@ export default function ResponsePanel() {
   const url = useStore((s) => s.currentRequest.url)
   const [tab, setTab] = useState<Tab>('body')
   const [copied, setCopied] = useState(false)
+  // Static render by default (no scripts): the unhide CSS in buildPreviewDoc
+  // reveals server-rendered content that frameworks gate behind visibility:hidden.
+  // Toggle on for client-only SPAs with empty SSR; scripts then run in an
+  // isolated sandbox (no allow-same-origin → no access to this app or its data).
+  const [runScripts, setRunScripts] = useState(false)
 
   const contentType = useMemo(
     () => response?.headers.find((h) => h.key.toLowerCase() === 'content-type')?.value,
@@ -137,12 +142,36 @@ export default function ResponsePanel() {
         {response && !isLoading && (
           <>
             {tab === 'preview' && (
-              <iframe
-                title="Response preview"
-                sandbox=""
-                srcDoc={previewDoc}
-                className="w-full h-full border-0 bg-white"
-              />
+              <div className="flex flex-col h-full">
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-hair bg-surface shrink-0">
+                  <button
+                    onClick={() => setRunScripts((v) => !v)}
+                    className={`flex items-center gap-1.5 px-2 py-0.5 text-xs rounded border transition-colors ${
+                      runScripts
+                        ? 'text-amber-300 border-amber-500/40 hover:border-amber-400'
+                        : 'text-emerald-300 border-emerald-500/40 hover:border-emerald-400'
+                    }`}
+                    title={
+                      runScripts
+                        ? 'Scripts run in an isolated sandbox (no access to this app). Click for safe static mode.'
+                        : 'Static render — no scripts. JS-gated pages may appear blank. Click to run scripts.'
+                    }
+                  >
+                    {runScripts ? <Code2 size={12} /> : <ShieldCheck size={12} />}
+                    {runScripts ? 'Scripts: on' : 'Scripts: off'}
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    {runScripts ? 'isolated sandbox' : 'static, no scripts'}
+                  </span>
+                </div>
+                <iframe
+                  key={`preview-${runScripts}`}
+                  title="Response preview"
+                  sandbox={runScripts ? 'allow-scripts allow-popups allow-forms' : ''}
+                  srcDoc={previewDoc}
+                  className="w-full flex-1 border-0 bg-white"
+                />
+              </div>
             )}
             {tab === 'body' && (
               <CodeMirror
