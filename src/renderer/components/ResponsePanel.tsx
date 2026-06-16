@@ -108,7 +108,7 @@ export default function ResponsePanel() {
   const response = useStore((s) => s.response)
   const responseError = useStore((s) => s.responseError)
   const isLoading = useStore((s) => s.isLoading)
-  const url = useStore((s) => s.currentRequest.url)
+  const responseUrl = useStore((s) => s.responseUrl)
   const [tab, setTab] = useState<Tab>('body')
   const [copied, setCopied] = useState(false)
 
@@ -212,7 +212,7 @@ export default function ResponsePanel() {
       <div className="flex-1 overflow-hidden">
         {response && !isLoading && (
           <>
-            {tab === 'preview' && <PagePreview url={url} />}
+            {tab === 'preview' && <PagePreview url={responseUrl ?? ''} />}
             {tab === 'body' && (
               <CodeMirror
                 value={prettyBody}

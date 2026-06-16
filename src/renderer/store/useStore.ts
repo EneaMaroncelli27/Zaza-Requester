@@ -24,6 +24,10 @@ const DEFAULT_REQUEST: RequestData = {
 interface StoreState {
   currentRequest: RequestData
   response: ResponseData | null
+  // URL that actually produced the current response. The preview navigates to
+  // this, NOT the live currentRequest.url, so editing the URL bar after a send
+  // doesn't re-fetch on every keystroke.
+  responseUrl: string | null
   responseError: string | null
   isLoading: boolean
   history: HistoryEntry[]
@@ -62,6 +66,7 @@ function persist(history: HistoryEntry[], projects: Project[]): void {
 export const useStore = create<StoreState>((set, get) => ({
   currentRequest: { ...DEFAULT_REQUEST },
   response: null,
+  responseUrl: null,
   responseError: null,
   isLoading: false,
   history: [],
@@ -91,6 +96,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       currentRequest: { ...entry.request },
       response: entry.response,
+      responseUrl: entry.request.url,
       bodyVersion: s.bodyVersion + 1
     })),
 
@@ -98,6 +104,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       currentRequest: { ...saved.request },
       response: null,
+      responseUrl: null,
       bodyVersion: s.bodyVersion + 1
     })),
 
@@ -105,6 +112,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const { currentRequest } = get()
     if (!currentRequest.url.trim()) return
 
+    const sentUrl = currentRequest.url
     set({ isLoading: true, response: null, responseError: null })
 
     try {
@@ -120,7 +128,7 @@ export const useStore = create<StoreState>((set, get) => ({
       set((s) => {
         const history = [entry, ...s.history].slice(0, MAX_HISTORY)
         persist(history, s.projects)
-        return { response, isLoading: false, history }
+        return { response, responseUrl: sentUrl, isLoading: false, history }
       })
     } catch (err) {
       set({
