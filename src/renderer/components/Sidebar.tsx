@@ -1,17 +1,8 @@
 import React, { useState } from 'react'
 import { Clock, FolderOpen, ChevronDown, ChevronRight, Trash2, Plus } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { methodText } from '../lib/methodTheme'
 import type { HistoryEntry, Project, SavedRequest } from '@shared/types'
-
-const METHOD_COLORS: Record<string, string> = {
-  GET: 'text-emerald-400',
-  POST: 'text-blue-400',
-  PUT: 'text-yellow-400',
-  PATCH: 'text-orange-400',
-  DELETE: 'text-red-400',
-  HEAD: 'text-purple-400',
-  OPTIONS: 'text-slate-400'
-}
 
 function truncateUrl(url: string): string {
   try {
@@ -31,7 +22,7 @@ function HistoryItem({ entry }: { entry: HistoryEntry }) {
       onClick={() => loadFromHistory(entry)}
       className="group flex items-center gap-2 px-3 py-2 hover:bg-slate-700/50 cursor-pointer rounded mx-1 transition-colors"
     >
-      <span className={`text-xs font-bold w-14 shrink-0 ${METHOD_COLORS[entry.request.method] ?? 'text-slate-400'}`}>
+      <span className={`text-xs font-bold font-mono w-14 shrink-0 ${methodText(entry.request.method)}`}>
         {entry.request.method}
       </span>
       <span className="flex-1 text-xs text-slate-300 truncate font-mono">
@@ -95,7 +86,7 @@ function SavedItem({ saved, projectId }: { saved: SavedRequest; projectId: strin
       onClick={() => loadSaved(saved)}
       className="group flex items-center gap-2 pl-8 pr-3 py-1.5 hover:bg-slate-700/50 cursor-pointer rounded mx-1 transition-colors"
     >
-      <span className={`text-xs font-bold w-12 shrink-0 ${METHOD_COLORS[saved.request.method] ?? 'text-slate-400'}`}>
+      <span className={`text-xs font-bold font-mono w-12 shrink-0 ${methodText(saved.request.method)}`}>
         {saved.request.method}
       </span>
       <span className="flex-1 text-xs text-slate-300 truncate">{saved.name}</span>

@@ -6,6 +6,12 @@ import { registerIpcHandlers } from './ipc'
 // Must be called before app is ready.
 app.disableHardwareAcceleration()
 
+// Optional CDP remote-debugging port for automated verification. Off unless
+// ZR_DEBUG_PORT is set, so production builds are never affected.
+if (process.env['ZR_DEBUG_PORT']) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env['ZR_DEBUG_PORT'])
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,

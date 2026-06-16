@@ -1,258 +1,115 @@
-# ZazaRequester — curl GUI Desktop App
+# ZazaRequester — UI/UX Improvement Pass
 
 ## Context
 
-Build a Linux desktop HTTP client that wraps curl in a GUI. The user needs to visually compose requests (URL, method, headers, body), execute them via the system `curl` binary, view formatted responses, and import raw curl commands copied from the browser network tab. History auto-saves last 5 requests (rolling); users can also save requests permanently into named project folders.
+The app is built and working (curl GUI: method/URL/headers/body, response viewer, curl import, history + projects). It's functional but visually flat — it sits on the generic "near-black + single indigo accent" look, and has real UX friction: you can't copy the response, can't turn your built request back into a curl command, the request/response split is locked 50/50, and the JSON body editor has no format or validity feedback.
+
+This pass improves **UX first, UI second**, without a heavy reskin. Two threads:
+
+1. **Visual identity (signature):** make the **HTTP method the spine of the UI**. The method colors already exist but are decorative and duplicated. We promote them to an ambient identity — the active method tints the URL focus ring and the Send button — so a `GET` reads green and a `DELETE` reads red. This is subject-derived (HTTP verb semantics), distinctive without being loud, and is genuinely safer UX: you get ambient awareness of what you're about to fire before you fire it.
+2. **Functional UX:** Copy response + Copy as cURL, a draggable request/response split, and JSON prettify + live validity.
+
+Out of scope this pass (not selected): confirm-on-delete, toast system, modal Escape/backdrop close, `https://` auto-prefix. Inline button feedback (transient "Copied ✓") is used instead of toasts.
 
 ---
 
-## Stack
+## Design Tokens
 
-| Layer | Choice |
-|---|---|
-| Desktop shell | Electron 30 |
-| Bundler | electron-vite (Vite-based, fast HMR) |
-| UI framework | React 18 + TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| State | Zustand |
-| Body/response editor | CodeMirror 6 (lighter than Monaco in Electron) |
-| Persistence | electron-store (JSON, stored in `~/.config/ZazaRequester/`) |
-| HTTP execution | `child_process.spawn('curl', [...args])` in main process |
+**Palette** — refine, don't replace. Keep the dark base, name it, warm the neutrals very slightly off pure slate so it reads intentional rather than default.
 
----
+| Token | Hex | Use |
+|---|---|---|
+| `bg` | `#0E141B` | app background (slightly warmer/deeper than current slate-900) |
+| `surface` | `#161E27` | panels, sidebar |
+| `surface-2` | `#1E2832` | inputs, raised rows |
+| `border` | `#2A3641` | hairlines |
+| `text` | `#E6EDF3` | primary text |
+| `text-dim` | `#8B98A5` | labels, secondary |
 
-## App Layout
+**Method accents** (the signature spine — already semantically correct, now load-bearing):
+`GET #34D399` · `POST #60A5FA` · `PUT #FBBF24` · `PATCH #FB923C` · `DELETE #F87171` · `HEAD #C084FC` · `OPTIONS #94A3B8`
 
-```
-┌──────────────────┬────────────────────────────────────────────┐
-│  SIDEBAR         │  REQUEST PANEL                             │
-│                  │                                            │
-│  ▼ History (5)   │  [GET ▼]  [URL input..................]  [Send] │
-│    · GET /api    │                                            │
-│    · POST /auth  │  [Headers] [Body] [Import cURL]            │
-│                  │  ┌──────────────────────────────────────┐  │
-│  ▼ Projects      │  │  key-value table / body editor /     │  │
-│    ▼ MyProject   │  │  curl paste textarea                 │  │
-│      · save1     │  └──────────────────────────────────────┘  │
-│      · save2     │  [Save to project ▼]                       │
-│  [+ New Project] │                                            │
-│                  │  ── RESPONSE ──────────────────────────    │
-│                  │  200 OK  · 142ms  · 1.2kb               │
-│                  │  [Headers] [Body]                          │
-│                  │  { "data": ...  }                          │
-└──────────────────┴────────────────────────────────────────────┘
-```
+**Type** — intentional pairing, bundled locally (offline-safe, no CDN):
+- **UI / chrome:** Inter (`@fontsource/inter`)
+- **All HTTP data** (URL, headers, body, response, method labels): **JetBrains Mono** (`@fontsource/jetbrains-mono`) — the data *is* the subject; it should look like code throughout.
+
+**Signature element:** the method-tinted request bar. Everything else stays quiet and disciplined — one bold place only.
 
 ---
 
-## File Structure
+## Changes
 
-```
-ZazaRequester/
-├── package.json
-├── electron.vite.config.ts
-├── tsconfig.json
-├── tsconfig.node.json
-├── tsconfig.web.json
-├── tailwind.config.ts
-├── src/
-│   ├── main/
-│   │   ├── index.ts          # Electron app entry, BrowserWindow creation
-│   │   ├── ipc.ts            # All ipcMain handlers
-│   │   ├── curl.ts           # curl execution: spawn + response parsing
-│   │   └── store.ts          # electron-store instance (persistence)
-│   ├── preload/
-│   │   └── index.ts          # contextBridge — exposes typed API to renderer
-│   └── renderer/
-│       ├── index.html
-│       ├── main.tsx
-│       ├── App.tsx           # Root layout: Sidebar + RequestPanel
-│       ├── components/
-│       │   ├── Sidebar.tsx           # History list + Projects tree
-│       │   ├── RequestPanel.tsx      # Method/URL bar + tabs + send button
-│       │   ├── HeadersEditor.tsx     # Key-value rows (add/remove/toggle)
-│       │   ├── BodyEditor.tsx        # CodeMirror 6 textarea with JSON highlight
-│       │   ├── CurlImport.tsx        # Paste curl → parse → populate fields
-│       │   ├── ResponsePanel.tsx     # Status badge + headers + body viewer
-│       │   └── SaveModal.tsx         # Dropdown/modal to pick project + name
-│       ├── store/
-│       │   └── useStore.ts           # Zustand: current request state + UI state
-│       └── lib/
-│           ├── curlParser.ts         # Pure function: string → RequestData
-│           ├── curlBuilder.ts        # RequestData → curl args array
-│           └── types.ts              # Shared TS interfaces
-```
-
----
-
-## Data Types (`src/renderer/lib/types.ts`)
+### 1 — Shared method theme (dedupe + promote)
+**New `src/renderer/lib/methodTheme.ts`** — single source of truth. `METHOD_COLORS` is currently duplicated in `RequestPanel.tsx` and `Sidebar.tsx`; replace both with this. Export a map per method with **complete static class strings** (Tailwind purges dynamic names, so no string interpolation — full classes per slot):
 
 ```ts
-interface Header { key: string; value: string; enabled: boolean }
-
-interface RequestData {
-  method: string           // GET | POST | PUT | PATCH | DELETE | HEAD | OPTIONS
-  url: string
-  headers: Header[]
-  body: string
-  bodyType: 'none' | 'raw' | 'json'
-}
-
-interface ResponseData {
-  status: number
-  statusText: string
-  headers: Header[]
-  body: string
-  durationMs: number
-  sizeBytes: number
-}
-
-interface HistoryEntry {
-  id: string
-  timestamp: number
-  request: RequestData
-  response: ResponseData
-}
-
-interface SavedRequest {
-  id: string
-  name: string
-  request: RequestData
-}
-
-interface Project {
-  id: string
-  name: string
-  requests: SavedRequest[]
-}
-
-interface AppStore {
-  history: HistoryEntry[]    // max 5, rolling — newest first
-  projects: Project[]
-}
+export const METHOD_THEME: Record<HttpMethod, {
+  text: string    // e.g. 'text-emerald-400'   — labels in sidebar/history
+  ring: string    // e.g. 'focus:border-emerald-500'  — URL input focus
+  btn: string     // e.g. 'bg-emerald-600 hover:bg-emerald-500' — Send button
+  dot: string     // e.g. 'bg-emerald-400'      — status/identity dot
+}>
 ```
+Add the corresponding classes to `tailwind.config.ts` **safelist** so they survive purge.
+
+### 2 — Method-color identity in the request bar
+**`src/renderer/components/RequestPanel.tsx`**
+- URL `<input>`: swap the fixed `focus:border-indigo-500` for `METHOD_THEME[method].ring`.
+- Send button: swap fixed `bg-indigo-600 hover:bg-indigo-500` for `METHOD_THEME[method].btn` (keep the disabled state as-is).
+- Method `<select>` keeps its colored text via `METHOD_THEME[method].text`.
+- Add a smooth `transition-colors` so switching method animates the tint.
+
+### 3 — Copy as cURL (symmetric to Import)
+**New `src/renderer/lib/buildCurlCommand.ts`** — pure `RequestData → string`. Produces a clean, **human-pasteable** curl (multi-line with `\` continuations, single-quoted values, `-X METHOD`, one `-H` per enabled header, `--data-raw` for body). This is distinct from the existing `src/main/curlBuilder.ts`, which builds internal `-s -i` spawn args — do not reuse that; it's for execution, not display.
+
+**`RequestPanel.tsx`** — add a "Copy as cURL" button in the request bar (next to Save). On click: `navigator.clipboard.writeText(buildCurlCommand(currentRequest))` and show a transient `Copied ✓` state on the button (~1.5s) via local `useState`. No toast.
+
+### 4 — Copy response body
+**`src/renderer/components/ResponsePanel.tsx`** — add a copy icon button in the response header bar (visible when a response exists). Copies `prettyBody` (already computed) to clipboard with the same transient `Copied ✓` inline feedback.
+
+### 5 — Resizable request/response split
+**New `src/renderer/hooks/useResizableSplit.ts`** — dependency-free vertical drag. Tracks a split ratio (default `0.5`), mouse-down on the divider → `mousemove` updates ratio (clamped, e.g. 0.2–0.8) → `mouseup` releases. Persist ratio to `localStorage` so it survives reloads.
+
+**`src/renderer/App.tsx`** — replace the two fixed `flex-1` panel wrappers with `flex-basis` driven by the ratio, and insert a ~4px draggable divider between them (`cursor-row-resize`, hover highlights to the active method color for a subtle through-line). Keep `min-h-0 overflow-hidden` (the fix from the last pass) intact.
+
+### 6 — JSON prettify + validate
+**`src/renderer/components/BodyEditor.tsx`** — when `bodyType === 'json'`, add a header row above the editor:
+- **Validity dot + label:** parse `body` on change → `● valid` (emerald) / `● invalid` (red) / nothing when empty.
+- **Format button:** `JSON.stringify(JSON.parse(body), null, 2)` → `setBody(...)`; disabled when invalid/empty.
+
+### 7 — Type + base styling
+- `bun add @fontsource/inter @fontsource/jetbrains-mono`.
+- Import both in `src/renderer/main.tsx`.
+- `tailwind.config.ts`: set `fontFamily.sans = ['Inter', ...]`, `fontFamily.mono = ['JetBrains Mono', ...]`. Apply `font-mono` to all HTTP-data surfaces (URL already has it; extend to header inputs, response, method labels).
+- Apply the named palette tokens (extend `colors` in tailwind config, or map to closest existing slate steps + the warmer bg) and refresh the few hardcoded `slate-900/800` references to the tokens. Keep changes mechanical and contained.
 
 ---
 
-## IPC Contract
+## Files
 
-All renderer ↔ main communication goes through the contextBridge. Three channels:
-
-| Channel | Direction | Payload | Return |
-|---|---|---|---|
-| `curl:execute` | renderer→main | `RequestData` | `ResponseData` |
-| `store:read` | renderer→main | — | `AppStore` |
-| `store:write` | renderer→main | `AppStore` | `void` |
-
-Preload exposes: `window.api.execute(req)`, `window.api.readStore()`, `window.api.writeStore(store)`.
-
----
-
-## Implementation Steps
-
-### 1 — Project Scaffold
-- `bun create electron-vite@latest . --template react-ts`
-- Install: `tailwindcss`, `shadcn/ui`, `zustand`, `electron-store`, `@codemirror/lang-json`, `@codemirror/view`, `nanoid`
-- Configure Tailwind, tsconfigs, electron-vite config
-- Add `.gitignore`, `README.md`
-
-### 2 — Types & lib (`src/renderer/lib/`)
-- `types.ts` — all interfaces above
-- `curlParser.ts` — parse pasted curl string into `RequestData`:
-  - Tokenize handling backslash continuations and quoted strings
-  - Extract: URL (bare arg or `--url`), method (`-X`/`--request`, infer POST if body present), headers (`-H`/`--header`), body (`-d`/`--data`/`--data-raw`/`--data-binary`), ignore `--compressed`
-  - Auto-detect `Content-Type: application/json` → set `bodyType: 'json'`
-- `curlBuilder.ts` — `RequestData` → `string[]` args for spawn:
-  - `-s -i -X METHOD URL`
-  - `-H 'Key: Value'` per enabled header
-  - `--data-raw 'body'` if body present
-  - Return args array (never interpolate into shell string — avoids injection)
-
-### 3 — Main Process (`src/main/`)
-- `store.ts`: electron-store schema with defaults (`{ history: [], projects: [] }`)
-- `curl.ts`: `executeCurl(req: RequestData): Promise<ResponseData>`
-  - Build args via `curlBuilder`
-  - `spawn('curl', args)` — capture stdout (headers+body via `-i`), stderr, timing
-  - Parse stdout: split on `\r\n\r\n`, first chunk = status line + response headers, rest = body
-  - Return `ResponseData`
-- `ipc.ts`: register handlers for all three channels
-- `index.ts`: create BrowserWindow (800×600 min, frameless optional), load renderer, register IPC
-
-### 4 — Preload (`src/preload/index.ts`)
-- `contextBridge.exposeInMainWorld('api', { execute, readStore, writeStore })`
-- Each method calls `ipcRenderer.invoke(channel, payload)`
-
-### 5 — Zustand Store (`src/renderer/store/useStore.ts`)
-- State: `currentRequest: RequestData`, `response: ResponseData | null`, `isLoading: boolean`, `appStore: AppStore`
-- Actions: `setRequest`, `send` (calls `window.api.execute`, updates history, caps at 5), `saveToProject`, `loadFromHistory`, `loadSaved`, `createProject`, `deleteProject`
-- Load `appStore` from `window.api.readStore()` on init; persist on every mutation via `window.api.writeStore()`
-
-### 6 — Components
-
-**`HeadersEditor.tsx`**
-- Rendered table of rows: enabled checkbox, key input, value input, delete button
-- "Add header" row at bottom
-- Controlled by Zustand `currentRequest.headers`
-
-**`BodyEditor.tsx`**
-- Tabs: None / Raw / JSON
-- CodeMirror 6 editor for Raw and JSON modes (JSON mode adds syntax highlight + fold)
-- Bound to `currentRequest.body`
-
-**`CurlImport.tsx`**
-- `<textarea>` for paste
-- "Import" button → calls `curlParser(text)` → dispatches `setRequest(parsed)`
-- Shows parse errors inline
-
-**`RequestPanel.tsx`**
-- Method `<Select>` + URL `<Input>` in top bar
-- "Send" button → calls `store.send()`
-- Tabs: Headers | Body | Import cURL
-- "Save to project" button → opens `SaveModal`
-
-**`ResponsePanel.tsx`**
-- Status badge (green/red based on 2xx/4xx/5xx)
-- Duration + size metadata
-- Tabs: Response Headers (key-value table) | Body (CodeMirror read-only)
-- Auto-detect JSON body → pretty-print
-
-**`Sidebar.tsx`**
-- History section: last 5 entries, click loads into request panel
-- Projects section: collapsible tree, click loads saved request
-- "New project" button
-
-**`SaveModal.tsx`**
-- Dropdown to pick existing project or "New project" (inline name input)
-- Name field for the saved request
-- Calls `store.saveToProject()`
-
-**`App.tsx`**
-- Two-column layout: `<Sidebar>` (fixed width) + `<RequestPanel>` + `<ResponsePanel>` (stacked or split)
-
-### 7 — Wiring & Polish
-- Keyboard shortcut: `Ctrl+Enter` sends request
-- Loading spinner on Send while curl is running
-- Error display if curl fails (network error, binary not found)
-- `Content-Type: application/json` auto-added when body tab is JSON mode
+| File | Change |
+|---|---|
+| `src/renderer/lib/methodTheme.ts` | **new** — single method→classes source |
+| `src/renderer/lib/buildCurlCommand.ts` | **new** — RequestData → pasteable curl string |
+| `src/renderer/hooks/useResizableSplit.ts` | **new** — drag-to-resize hook |
+| `src/renderer/components/RequestPanel.tsx` | method-tint ring+button, Copy-as-cURL |
+| `src/renderer/components/ResponsePanel.tsx` | copy response button |
+| `src/renderer/components/BodyEditor.tsx` | JSON format + validity |
+| `src/renderer/components/Sidebar.tsx` | use shared methodTheme (dedupe) |
+| `src/renderer/App.tsx` | resizable split + divider |
+| `tailwind.config.ts` | fonts, palette tokens, method safelist |
+| `src/renderer/main.tsx` | font imports |
+| `package.json` | `@fontsource/inter`, `@fontsource/jetbrains-mono` |
 
 ---
 
 ## Verification
 
-1. `bun run dev` → Electron window opens
-2. Enter `https://httpbin.org/get`, click Send → 200 response with JSON body displayed
-3. Switch to POST, add header `Content-Type: application/json`, add body `{"hello":"world"}`, send to `https://httpbin.org/post` → response echoes body
-4. Copy a curl from browser DevTools network tab, paste into "Import cURL" tab, click Import → all fields populate
-5. Send a request → check Sidebar History shows entry (max 5, oldest drops)
-6. Create a project, save current request → appears in sidebar under project
-7. Reload app → saved project persists, history persists
-
----
-
-## Out of Scope (v1)
-
-- Auth tab (OAuth, Bearer, API key — can add headers manually)
-- Environment variables / variable interpolation
-- Response download to file
-- WebSocket / GraphQL
-- Windows / macOS packaging (Linux only for now)
+1. `bun run build` — clean typecheck + bundle.
+2. `bun run dev` — window opens; capture via CDP `Page.captureScreenshot` (X11 grab returns black on this VM — use CDP).
+3. **Method identity:** switch GET → DELETE; confirm URL focus ring + Send button retint green → red with transition.
+4. **Copy as cURL:** build a POST with a header + JSON body, click Copy as cURL, paste — verify it's a valid, runnable curl that round-trips through the existing Import cURL parser.
+5. **Copy response:** send a request, click copy on the response, verify clipboard matches the pretty body.
+6. **Resize:** drag the divider; response grows; reload app — ratio persists.
+7. **JSON validate:** type `{"a":1` → `● invalid`, Format disabled; complete to `{"a":1}` → `● valid`, Format pretty-prints.
+8. Confirm the previous layout fix still holds (request bar visible, not collapsed).

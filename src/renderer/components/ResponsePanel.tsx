@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { Copy, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
 function statusColor(status: number): string {
@@ -25,6 +26,7 @@ export default function ResponsePanel() {
   const responseError = useStore((s) => s.responseError)
   const isLoading = useStore((s) => s.isLoading)
   const [tab, setTab] = useState<Tab>('body')
+  const [copied, setCopied] = useState(false)
 
   const prettyBody = useMemo(() => {
     if (!response?.body) return ''
@@ -41,14 +43,21 @@ export default function ResponsePanel() {
     return ct?.value.includes('json') ?? false
   }, [response])
 
+  const handleCopy = async () => {
+    if (!response) return
+    await navigator.clipboard.writeText(prettyBody)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
   return (
-    <div className="flex flex-col h-full border-t border-slate-700">
+    <div className="flex flex-col h-full border-t border-hair">
       {/* Header bar */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-700 bg-slate-800/50 shrink-0">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Response</span>
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-hair bg-surface shrink-0">
+        <span className="text-xs font-semibold text-ink-dim uppercase tracking-wider">Response</span>
 
         {isLoading && (
-          <span className="text-sm text-slate-400 animate-pulse">Sending...</span>
+          <span className="text-sm text-ink-dim animate-pulse">Sending...</span>
         )}
 
         {response && !isLoading && (
@@ -56,8 +65,8 @@ export default function ResponsePanel() {
             <span className={`px-2 py-0.5 rounded border text-xs font-bold ${statusColor(response.status)}`}>
               {response.status} {response.statusText}
             </span>
-            <span className="text-xs text-slate-500">{response.durationMs}ms</span>
-            <span className="text-xs text-slate-500">{formatSize(response.sizeBytes)}</span>
+            <span className="text-xs text-slate-500 font-mono">{response.durationMs}ms</span>
+            <span className="text-xs text-slate-500 font-mono">{formatSize(response.sizeBytes)}</span>
             <div className="ml-2 flex gap-1">
               {(['body', 'headers'] as Tab[]).map((t) => (
                 <button
@@ -65,14 +74,27 @@ export default function ResponsePanel() {
                   onClick={() => setTab(t)}
                   className={`px-3 py-0.5 rounded text-xs font-medium transition-colors ${
                     tab === t
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-surface-2 text-ink'
+                      : 'text-ink-dim hover:text-ink'
                   }`}
                 >
                   {t === 'body' ? 'Body' : `Headers (${response.headers.length})`}
                 </button>
               ))}
             </div>
+            {tab === 'body' && (
+              <button
+                onClick={handleCopy}
+                className="ml-auto flex items-center gap-1.5 px-2 py-0.5 text-xs text-ink-dim hover:text-ink border border-hair hover:border-slate-500 rounded transition-colors"
+                title="Copy response body"
+              >
+                {copied ? (
+                  <><Check size={12} className="text-emerald-400" /> Copied</>
+                ) : (
+                  <><Copy size={12} /> Copy</>
+                )}
+              </button>
+            )}
           </>
         )}
 

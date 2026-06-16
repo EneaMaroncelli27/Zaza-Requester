@@ -30,6 +30,10 @@ interface StoreState {
   projects: Project[]
   showSaveModal: boolean
   initialized: boolean
+  // Bumped only when the body is replaced by an external load (import / history /
+  // saved) — never on typing. The body editor uses it as a remount key, because
+  // a mounted, editable CodeMirror won't reflect external value changes on its own.
+  bodyVersion: number
 
   // Actions
   setMethod: (method: HttpMethod) => void
@@ -64,6 +68,7 @@ export const useStore = create<StoreState>((set, get) => ({
   projects: [],
   showSaveModal: false,
   initialized: false,
+  bodyVersion: 0,
 
   setMethod: (method) =>
     set((s) => ({ currentRequest: { ...s.currentRequest, method } })),
@@ -80,11 +85,21 @@ export const useStore = create<StoreState>((set, get) => ({
   setBodyType: (bodyType) =>
     set((s) => ({ currentRequest: { ...s.currentRequest, bodyType } })),
 
-  importRequest: (req) => set({ currentRequest: req }),
+  importRequest: (req) => set((s) => ({ currentRequest: req, bodyVersion: s.bodyVersion + 1 })),
 
-  loadFromHistory: (entry) => set({ currentRequest: { ...entry.request }, response: entry.response }),
+  loadFromHistory: (entry) =>
+    set((s) => ({
+      currentRequest: { ...entry.request },
+      response: entry.response,
+      bodyVersion: s.bodyVersion + 1
+    })),
 
-  loadSaved: (saved) => set({ currentRequest: { ...saved.request }, response: null }),
+  loadSaved: (saved) =>
+    set((s) => ({
+      currentRequest: { ...saved.request },
+      response: null,
+      bodyVersion: s.bodyVersion + 1
+    })),
 
   send: async () => {
     const { currentRequest } = get()
