@@ -1,11 +1,92 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { html as htmlLang } from '@codemirror/lang-html'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { Copy, Check, Code2, ShieldCheck } from 'lucide-react'
+import { Copy, Check, RefreshCw, Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { isHtmlResponse, buildPreviewDoc } from '../lib/previewDoc'
+import { isHtmlResponse } from '../lib/previewDoc'
+
+/**
+ * Renders a page in a real embedded browser (<webview>) navigated to the
+ * request URL — runs the site's own JS, loads its chunks/CSS, and (unlike an
+ * iframe) is not blocked by X-Frame-Options. This is the only way to render
+ * modern React/SSR sites faithfully. It re-fetches the URL with a GET in an
+ * isolated session; the exact response bytes are still available on the Body tab.
+ */
+function PagePreview({ url }: { url: string }) {
+  const ref = useRef<HTMLElement & { reload: () => void } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState<string | null>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onStart = () => { setLoading(true); setFailed(null) }
+    const onStop = () => setLoading(false)
+    const onFail = (e: any) => {
+      // -3 (ABORTED) fires on normal redirects/sub-resource cancels — ignore.
+      if (e.errorCode === -3 || e.isMainFrame === false) return
+      setLoading(false)
+      setFailed(e.errorDescription || `Failed to load (${e.errorCode})`)
+    }
+    el.addEventListener('did-start-loading', onStart)
+    el.addEventListener('did-stop-loading', onStop)
+    el.addEventListener('did-fail-load', onFail as EventListener)
+    return () => {
+      el.removeEventListener('did-start-loading', onStart)
+      el.removeEventListener('did-stop-loading', onStop)
+      el.removeEventListener('did-fail-load', onFail as EventListener)
+    }
+  }, [url])
+
+  if (!url) {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-slate-500">
+        No URL to preview
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-hair bg-surface shrink-0">
+        <button
+          onClick={() => ref.current?.reload()}
+          className="flex items-center gap-1.5 px-2 py-0.5 text-xs text-ink-dim hover:text-ink border border-hair hover:border-slate-500 rounded transition-colors"
+          title="Reload preview"
+        >
+          <RefreshCw size={12} /> Reload
+        </button>
+        {loading && (
+          <span className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Loader2 size={12} className="animate-spin" /> Loading…
+          </span>
+        )}
+        <span className="ml-auto flex items-center gap-1 text-xs text-slate-500 truncate max-w-[60%]">
+          <ExternalLink size={11} /> live render of {url}
+        </span>
+      </div>
+      <div className="relative flex-1 bg-white overflow-hidden">
+        <webview
+          ref={ref as any}
+          src={url}
+          partition="zr-preview"
+          className="w-full h-full"
+          style={{ display: 'flex', width: '100%', height: '100%' }}
+        />
+        {failed && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/95 text-center px-6">
+            <AlertTriangle size={20} className="text-amber-400" />
+            <p className="text-sm text-ink">Couldn't render this page</p>
+            <p className="text-xs text-slate-500">{failed}</p>
+            <p className="text-xs text-slate-500">The raw response is on the Body tab.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function statusColor(status: number): string {
   if (status >= 500) return 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -30,11 +111,6 @@ export default function ResponsePanel() {
   const url = useStore((s) => s.currentRequest.url)
   const [tab, setTab] = useState<Tab>('body')
   const [copied, setCopied] = useState(false)
-  // Static render by default (no scripts): the unhide CSS in buildPreviewDoc
-  // reveals server-rendered content that frameworks gate behind visibility:hidden.
-  // Toggle on for client-only SPAs with empty SSR; scripts then run in an
-  // isolated sandbox (no allow-same-origin → no access to this app or its data).
-  const [runScripts, setRunScripts] = useState(false)
 
   const contentType = useMemo(
     () => response?.headers.find((h) => h.key.toLowerCase() === 'content-type')?.value,
@@ -56,11 +132,6 @@ export default function ResponsePanel() {
       return response.body
     }
   }, [response?.body])
-
-  const previewDoc = useMemo(
-    () => (isHtml && response ? buildPreviewDoc(response.body, url) : ''),
-    [isHtml, response, url]
-  )
 
   // When a new response arrives, default HTML pages to the rendered Preview;
   // otherwise show the raw Body. Also bounce off Preview if it's no longer HTML.
@@ -141,38 +212,7 @@ export default function ResponsePanel() {
       <div className="flex-1 overflow-hidden">
         {response && !isLoading && (
           <>
-            {tab === 'preview' && (
-              <div className="flex flex-col h-full">
-                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-hair bg-surface shrink-0">
-                  <button
-                    onClick={() => setRunScripts((v) => !v)}
-                    className={`flex items-center gap-1.5 px-2 py-0.5 text-xs rounded border transition-colors ${
-                      runScripts
-                        ? 'text-amber-300 border-amber-500/40 hover:border-amber-400'
-                        : 'text-emerald-300 border-emerald-500/40 hover:border-emerald-400'
-                    }`}
-                    title={
-                      runScripts
-                        ? 'Scripts run in an isolated sandbox (no access to this app). Click for safe static mode.'
-                        : 'Static render — no scripts. JS-gated pages may appear blank. Click to run scripts.'
-                    }
-                  >
-                    {runScripts ? <Code2 size={12} /> : <ShieldCheck size={12} />}
-                    {runScripts ? 'Scripts: on' : 'Scripts: off'}
-                  </button>
-                  <span className="text-xs text-slate-500">
-                    {runScripts ? 'isolated sandbox' : 'static, no scripts'}
-                  </span>
-                </div>
-                <iframe
-                  key={`preview-${runScripts}`}
-                  title="Response preview"
-                  sandbox={runScripts ? 'allow-scripts allow-popups allow-forms' : ''}
-                  srcDoc={previewDoc}
-                  className="w-full flex-1 border-0 bg-white"
-                />
-              </div>
-            )}
+            {tab === 'preview' && <PagePreview url={url} />}
             {tab === 'body' && (
               <CodeMirror
                 value={prettyBody}

@@ -25,7 +25,10 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      // Enables the <webview> tag used by the response HTML preview to render
+      // real pages (runs their JS, loads chunks, bypasses X-Frame-Options).
+      webviewTag: true
     }
   })
 
