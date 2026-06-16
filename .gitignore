@@ -3,3 +3,6 @@ out/
 dist/
 .DS_Store
 *.local
+
+# Build artifacts
+release/

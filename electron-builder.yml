@@ -1,0 +1,24 @@
+appId: com.zazaman.zazarequester
+productName: ZazaRequester
+
+directories:
+  output: release
+  buildResources: build
+
+# What gets bundled into the app. electron-vite outputs to out/.
+files:
+  - out/**/*
+  - package.json
+
+# Bundle the system curl assumption note: the app shells out to the system
+# `curl` binary at runtime, so it is not packaged here.
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  maintainer: ZazaMan
+
+# No native modules, skip the rebuild step.
+npmRebuild: false
