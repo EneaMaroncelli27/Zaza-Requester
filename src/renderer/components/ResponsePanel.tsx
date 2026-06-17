@@ -1,88 +1,47 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { html as htmlLang } from '@codemirror/lang-html'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { Copy, Check, RefreshCw, Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
+import { Copy, Check, ExternalLink } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { isHtmlResponse } from '../lib/previewDoc'
 
 /**
- * Renders a page in a real embedded browser (<webview>) navigated to the
- * request URL — runs the site's own JS, loads its chunks/CSS, and (unlike an
- * iframe) is not blocked by X-Frame-Options. This is the only way to render
- * modern React/SSR sites faithfully. It re-fetches the URL with a GET in an
- * isolated session; the exact response bytes are still available on the Body tab.
+ * Renders the exact response body — the same bytes shown on the Body tab — in a
+ * sandboxed iframe, matching what Chrome DevTools' Network → Preview pane shows.
+ * A strict CSP guarantees zero extra network requests: external CSS/JS/images do
+ * NOT load and scripts do NOT run, so the page renders its DOM/text and may look
+ * unstyled. This deliberately does NOT re-fetch the URL — it shows the response
+ * you actually received, not a fresh anonymous GET.
  */
-function PagePreview({ url }: { url: string }) {
-  const ref = useRef<HTMLElement & { reload: () => void } | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [failed, setFailed] = useState<string | null>(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const onStart = () => { setLoading(true); setFailed(null) }
-    const onStop = () => setLoading(false)
-    const onFail = (e: any) => {
-      // -3 (ABORTED) fires on normal redirects/sub-resource cancels — ignore.
-      if (e.errorCode === -3 || e.isMainFrame === false) return
-      setLoading(false)
-      setFailed(e.errorDescription || `Failed to load (${e.errorCode})`)
-    }
-    el.addEventListener('did-start-loading', onStart)
-    el.addEventListener('did-stop-loading', onStop)
-    el.addEventListener('did-fail-load', onFail as EventListener)
-    return () => {
-      el.removeEventListener('did-start-loading', onStart)
-      el.removeEventListener('did-stop-loading', onStop)
-      el.removeEventListener('did-fail-load', onFail as EventListener)
-    }
-  }, [url])
-
-  if (!url) {
+function PagePreview({ body }: { body: string }) {
+  if (!body) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-slate-500">
-        No URL to preview
+        Empty response body
       </div>
     )
   }
+  // Inject a strict CSP so the sandboxed render makes zero network requests. The
+  // raw bytes are unchanged on the Body tab; this wrapper only governs rendering.
+  const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">`
+  const doc = `${csp}\n${body}`
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-hair bg-surface shrink-0">
-        <button
-          onClick={() => ref.current?.reload()}
-          className="flex items-center gap-1.5 px-2 py-0.5 text-xs text-ink-dim hover:text-ink border border-hair hover:border-slate-500 rounded transition-colors"
-          title="Reload preview"
-        >
-          <RefreshCw size={12} /> Reload
-        </button>
-        {loading && (
-          <span className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Loader2 size={12} className="animate-spin" /> Loading…
-          </span>
-        )}
-        <span className="ml-auto flex items-center gap-1 text-xs text-slate-500 truncate max-w-[60%]">
-          <ExternalLink size={11} /> live render of {url}
+        <span className="ml-auto flex items-center gap-1 text-xs text-slate-500">
+          <ExternalLink size={11} /> rendered response — no network requests
         </span>
       </div>
       <div className="relative flex-1 bg-white overflow-hidden">
-        <webview
-          ref={ref as any}
-          src={url}
-          partition="zr-preview"
-          className="w-full h-full"
-          style={{ display: 'flex', width: '100%', height: '100%' }}
+        <iframe
+          srcDoc={doc}
+          sandbox=""
+          className="w-full h-full border-0"
+          title="Response preview"
         />
-        {failed && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/95 text-center px-6">
-            <AlertTriangle size={20} className="text-amber-400" />
-            <p className="text-sm text-ink">Couldn't render this page</p>
-            <p className="text-xs text-slate-500">{failed}</p>
-            <p className="text-xs text-slate-500">The raw response is on the Body tab.</p>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -108,7 +67,6 @@ export default function ResponsePanel() {
   const response = useStore((s) => s.response)
   const responseError = useStore((s) => s.responseError)
   const isLoading = useStore((s) => s.isLoading)
-  const responseUrl = useStore((s) => s.responseUrl)
   const [tab, setTab] = useState<Tab>('body')
   const [copied, setCopied] = useState(false)
 
@@ -212,7 +170,7 @@ export default function ResponsePanel() {
       <div className="flex-1 overflow-hidden">
         {response && !isLoading && (
           <>
-            {tab === 'preview' && <PagePreview url={responseUrl ?? ''} />}
+            {tab === 'preview' && <PagePreview body={response.body} />}
             {tab === 'body' && (
               <CodeMirror
                 value={prettyBody}

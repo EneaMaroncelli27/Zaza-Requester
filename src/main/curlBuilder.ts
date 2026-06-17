@@ -4,6 +4,10 @@ export function buildCurlArgs(req: RequestData): string[] {
   const args = [
     '-s',
     '-i',
+    // Decompress the response (gzip/deflate/br/zstd) so the stored body is the
+    // decoded bytes the browser renders — not raw compressed garbage. Curl does
+    // NOT auto-decompress without this, even if the request advertises encodings.
+    '--compressed',
     '-X', req.method,
     req.url
   ]
