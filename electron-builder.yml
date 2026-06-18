@@ -1,5 +1,6 @@
 appId: com.zazaman.zazarequester
 productName: ZazaRequester
+icon: resources/icon.png
 
 directories:
   output: release
