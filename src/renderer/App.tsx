@@ -12,6 +12,10 @@ export default function App() {
 
   useEffect(() => {
     initStore()
+    // Subscribe here (not in initStore) with a disposer so StrictMode's
+    // double-invoke doesn't leave two handlers loading each request twice.
+    const off = window.api.onLoadRequest((req) => useStore.getState().importRequest(req))
+    return off
   }, [initStore])
 
   if (!initialized) {

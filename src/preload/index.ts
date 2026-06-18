@@ -6,10 +6,15 @@ contextBridge.exposeInMainWorld('api', {
   execute: (req: RequestData) => ipcRenderer.invoke('curl:execute', req),
   readStore: () => ipcRenderer.invoke('store:read'),
   writeStore: (store: AppStore) => ipcRenderer.invoke('store:write', store),
-  // main window: open intercept + receive requests loaded from intercept
+  // main window: open intercept + receive requests loaded from intercept.
+  // Listener registrars return a disposer so subscribers can clean up and
+  // avoid duplicate handlers (e.g. React StrictMode double-invoking effects).
   openIntercept: () => ipcRenderer.send(IPC.OPEN_INTERCEPT),
-  onLoadRequest: (cb: (req: RequestData) => void) =>
-    ipcRenderer.on(IPC.ON_LOAD_REQUEST, (_e, req: RequestData) => cb(req))
+  onLoadRequest: (cb: (req: RequestData) => void) => {
+    const handler = (_e: unknown, req: RequestData): void => cb(req)
+    ipcRenderer.on(IPC.ON_LOAD_REQUEST, handler)
+    return () => ipcRenderer.removeListener(IPC.ON_LOAD_REQUEST, handler)
+  }
 })
 
 contextBridge.exposeInMainWorld('intercept', {
@@ -18,10 +23,16 @@ contextBridge.exposeInMainWorld('intercept', {
   resolve: (cmd: ResolveCommand) => ipcRenderer.send(IPC.RESOLVE, cmd),
   sendToBuilder: (req: { method: string; url: string; headers: [string, string][]; body: string }) =>
     ipcRenderer.send(IPC.SEND_TO_BUILDER, req),
-  onCapture: (cb: (dto: CapturedRequestDto) => void) =>
-    ipcRenderer.on(IPC.ON_CAPTURE, (_e, dto: CapturedRequestDto) => cb(dto)),
-  onPause: (cb: (dto: CapturedRequestDto) => void) =>
-    ipcRenderer.on(IPC.ON_PAUSE, (_e, dto: CapturedRequestDto) => cb(dto))
+  onCapture: (cb: (dto: CapturedRequestDto) => void) => {
+    const handler = (_e: unknown, dto: CapturedRequestDto): void => cb(dto)
+    ipcRenderer.on(IPC.ON_CAPTURE, handler)
+    return () => ipcRenderer.removeListener(IPC.ON_CAPTURE, handler)
+  },
+  onPause: (cb: (dto: CapturedRequestDto) => void) => {
+    const handler = (_e: unknown, dto: CapturedRequestDto): void => cb(dto)
+    ipcRenderer.on(IPC.ON_PAUSE, handler)
+    return () => ipcRenderer.removeListener(IPC.ON_PAUSE, handler)
+  }
 })
 
 export type { ResolveCommand, RequestEdit }

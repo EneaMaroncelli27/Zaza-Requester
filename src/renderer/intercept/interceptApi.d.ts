@@ -7,8 +7,8 @@ declare global {
       navigate: (url: string) => void
       resolve: (cmd: ResolveCommand) => void
       sendToBuilder: (req: { method: string; url: string; headers: [string, string][]; body: string }) => void
-      onCapture: (cb: (dto: CapturedRequestDto) => void) => void
-      onPause: (cb: (dto: CapturedRequestDto) => void) => void
+      onCapture: (cb: (dto: CapturedRequestDto) => void) => () => void
+      onPause: (cb: (dto: CapturedRequestDto) => void) => () => void
     }
   }
 }

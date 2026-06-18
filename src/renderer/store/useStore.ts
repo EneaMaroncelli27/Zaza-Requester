@@ -219,9 +219,6 @@ export const useStore = create<StoreState>((set, get) => ({
   setShowSaveModal: (show) => set({ showSaveModal: show }),
 
   initStore: async () => {
-    window.api.onLoadRequest((req) => {
-      get().importRequest(req)
-    })
     try {
       const stored = await window.api.readStore()
       set({

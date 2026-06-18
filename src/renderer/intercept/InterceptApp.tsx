@@ -10,10 +10,14 @@ export default function InterceptApp() {
   const [addr, setAddr] = useState('https://example.com')
 
   useEffect(() => {
-    window.intercept.onCapture((dto) => setRows((prev) => [dto, ...prev].slice(0, 500)))
-    window.intercept.onPause((dto) =>
+    // Dispose listeners on unmount so StrictMode's double-mount (and any
+    // remount) does not leave duplicate IPC handlers that render each request
+    // more than once.
+    const offCapture = window.intercept.onCapture((dto) => setRows((prev) => [dto, ...prev].slice(0, 500)))
+    const offPause = window.intercept.onPause((dto) =>
       setRows((prev) => prev.map((r) => (r.id === dto.id ? dto : (prev.some((x) => x.id === dto.id) ? r : r)))
         .concat(prev.some((x) => x.id === dto.id) ? [] : [dto])))
+    return () => { offCapture(); offPause() }
   }, [])
 
   const toggleArmed = () => { const next = !armed; setArmed(next); window.intercept.setArmed(next) }

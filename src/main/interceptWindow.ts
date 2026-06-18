@@ -57,6 +57,10 @@ export function openInterceptWindow(proxyPort: number, proxy: MitmProxy): Browse
   win.on('resize', layout)
   layout()
 
+  // Give the embedded browser a real starting page so the top pane isn't blank
+  // on open. Matches the address-bar default in the intercept UI.
+  browserView.webContents.loadURL('https://example.com')
+
   // Bridge engine → renderer.
   proxy.engine.onCapture = (req) => win.webContents.send(IPC.ON_CAPTURE, toDto(req, false))
   proxy.engine.onPause = (req) => win.webContents.send(IPC.ON_PAUSE, toDto(req, true))

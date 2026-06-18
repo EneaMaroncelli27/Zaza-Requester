@@ -8,7 +8,7 @@ declare global {
       readStore: () => Promise<AppStore>
       writeStore: (store: AppStore) => Promise<void>
       openIntercept: () => void
-      onLoadRequest: (cb: (req: RequestData) => void) => void
+      onLoadRequest: (cb: (req: RequestData) => void) => () => void
     }
   }
 }
