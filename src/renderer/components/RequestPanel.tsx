@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Send, Save, Terminal, Check } from 'lucide-react'
+import { Send, Save, Terminal, Check, Eraser } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import HeadersEditor from './HeadersEditor'
 import BodyEditor from './BodyEditor'
@@ -23,6 +23,7 @@ export default function RequestPanel() {
   const setMethod = useStore((s) => s.setMethod)
   const setUrl = useStore((s) => s.setUrl)
   const send = useStore((s) => s.send)
+  const reset = useStore((s) => s.reset)
   const setShowSaveModal = useStore((s) => s.setShowSaveModal)
 
   const [tab, setTab] = useState<Tab>('headers')
@@ -98,6 +99,14 @@ export default function RequestPanel() {
           title="Save to project"
         >
           <Save size={14} />
+        </button>
+
+        <button
+          onClick={reset}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-ink-dim hover:text-red-400 border border-hair hover:border-red-500/60 rounded text-sm transition-colors shrink-0"
+          title="Clear request (method, URL, headers, body)"
+        >
+          <Eraser size={14} />
         </button>
       </div>
 

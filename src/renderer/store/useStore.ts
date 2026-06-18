@@ -46,6 +46,7 @@ interface StoreState {
   setBody: (body: string) => void
   setBodyType: (bodyType: BodyType) => void
   importRequest: (req: RequestData) => void
+  reset: () => void
   loadFromHistory: (entry: HistoryEntry) => void
   loadSaved: (req: SavedRequest) => void
   send: () => Promise<void>
@@ -91,6 +92,17 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({ currentRequest: { ...s.currentRequest, bodyType } })),
 
   importRequest: (req) => set((s) => ({ currentRequest: req, bodyVersion: s.bodyVersion + 1 })),
+
+  // Clear everything in the request panel back to a blank GET. Bumps bodyVersion
+  // so the CodeMirror body editor remounts and reflects the emptied body.
+  reset: () =>
+    set((s) => ({
+      currentRequest: { ...DEFAULT_REQUEST },
+      response: null,
+      responseUrl: null,
+      responseError: null,
+      bodyVersion: s.bodyVersion + 1
+    })),
 
   loadFromHistory: (entry) =>
     set((s) => ({

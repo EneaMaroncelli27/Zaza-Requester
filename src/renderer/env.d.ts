@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type { RequestData, AppStore, ResponseData } from '@shared/types'
 
 declare global {

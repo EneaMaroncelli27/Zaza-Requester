@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Clock, FolderOpen, ChevronDown, ChevronRight, Trash2, Plus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { methodText } from '../lib/methodTheme'
+import logo from '../assets/logo.png'
 import type { HistoryEntry, Project, SavedRequest } from '@shared/types'
 
 function truncateUrl(url: string): string {
@@ -120,7 +121,8 @@ export default function Sidebar() {
   return (
     <div className="flex flex-col h-full bg-slate-800/60 border-r border-slate-700 overflow-hidden w-64 shrink-0">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-700">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-slate-700">
+        <img src={logo} alt="ZazaRequester logo" className="w-7 h-7 shrink-0" />
         <h1 className="text-sm font-bold text-slate-100 tracking-wide">ZazaRequester</h1>
       </div>
 

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
 
 // Fixes black/blank window on many Linux GPU/compositor setups.
@@ -19,6 +20,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'ZazaRequester',
+    icon,
     backgroundColor: '#0f172a',
     show: false,
     webPreferences: {
