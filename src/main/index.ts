@@ -1,7 +1,12 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, nativeImage, shell } from 'electron'
 import { join } from 'path'
-import icon from '../../resources/icon.png?asset'
+import iconPath from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
+
+// Load the window icon as a nativeImage. On Linux X11 a bare string path from
+// inside the asar archive does not reliably populate _NET_WM_ICON, so we
+// decode the bytes ourselves and hand Electron a real image.
+const appIcon = nativeImage.createFromPath(iconPath)
 
 // Fixes black/blank window on many Linux GPU/compositor setups.
 // Must be called before app is ready.
@@ -20,7 +25,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'ZazaRequester',
-    icon,
+    icon: appIcon,
     backgroundColor: '#0f172a',
     show: false,
     webPreferences: {
@@ -33,6 +38,10 @@ function createWindow(): void {
       webviewTag: true
     }
   })
+
+  // Belt-and-suspenders for Linux: also set the icon explicitly after the
+  // window exists, in case the constructor option is ignored on this platform.
+  if (process.platform === 'linux' && !appIcon.isEmpty()) win.setIcon(appIcon)
 
   // Show only once the renderer has painted — avoids a blank/black flash.
   win.once('ready-to-show', () => {

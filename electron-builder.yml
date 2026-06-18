@@ -10,11 +10,16 @@ directories:
 files:
   - out/**/*
   - package.json
+  - resources/**/*
 
 # Bundle the system curl assumption note: the app shells out to the system
 # `curl` binary at runtime, so it is not packaged here.
 
 linux:
+  # Point at the generated icon ladder (16..512) so every desktop environment
+  # finds a standard hicolor size. A single non-standard size (e.g. 500x500)
+  # gets skipped by some launchers.
+  icon: build/icons
   target:
     - AppImage
     - deb

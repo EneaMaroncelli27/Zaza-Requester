@@ -1,5 +1,6 @@
 {
   "name": "zaza-requester",
+  "productName": "ZazaRequester",
   "version": "0.1.0",
   "description": "curl GUI desktop app",
   "author": "ZazaMan",

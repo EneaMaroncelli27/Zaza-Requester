@@ -122,7 +122,7 @@ export default function Sidebar() {
     <div className="flex flex-col h-full bg-slate-800/60 border-r border-slate-700 overflow-hidden w-64 shrink-0">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-slate-700">
-        <img src={logo} alt="ZazaRequester logo" className="w-7 h-7 shrink-0" />
+        <img src={logo} alt="ZazaRequester logo" className="w-16 h-16 shrink-0" />
         <h1 className="text-sm font-bold text-slate-100 tracking-wide">ZazaRequester</h1>
       </div>
 
