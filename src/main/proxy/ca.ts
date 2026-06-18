@@ -1,4 +1,6 @@
 import forge from 'node-forge'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 export interface CaMaterial {
   caKeyPem: string
@@ -60,4 +62,20 @@ export function issueLeaf(ca: CaMaterial, host: string): { keyPem: string; certP
     keyPem: forge.pki.privateKeyToPem(keys.privateKey),
     certPem: forge.pki.certificateToPem(cert)
   }
+}
+
+export function loadOrCreateCa(dir: string): CaMaterial {
+  const keyPath = join(dir, 'ca-key.pem')
+  const certPath = join(dir, 'ca-cert.pem')
+  if (existsSync(keyPath) && existsSync(certPath)) {
+    return {
+      caKeyPem: readFileSync(keyPath, 'utf8'),
+      caCertPem: readFileSync(certPath, 'utf8')
+    }
+  }
+  const ca = createCa()
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(keyPath, ca.caKeyPem, { mode: 0o600 })
+  writeFileSync(certPath, ca.caCertPem)
+  return ca
 }
