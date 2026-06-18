@@ -90,16 +90,27 @@ app.whenReady().then(async () => {
 
   ipcMain.on(IPC.RESOLVE, (_e, cmd: ResolveCommand) => {
     if (cmd.action === 'drop') { proxy.engine.resolve(cmd.id, { action: 'drop' }); return }
+    if (!cmd.edit) { proxy.engine.resolve(cmd.id, { action: 'forward' }); return }
+    let u: URL
+    try {
+      u = new URL(cmd.edit.url)
+    } catch {
+      proxy.engine.resolve(cmd.id, { action: 'drop' })
+      return
+    }
     proxy.engine.resolve(cmd.id, {
       action: 'forward',
-      edited: cmd.edit ? {
-        id: cmd.id, method: cmd.edit.method, url: cmd.edit.url,
-        host: new URL(cmd.edit.url).hostname,
-        port: new URL(cmd.edit.url).port ? Number(new URL(cmd.edit.url).port) : (cmd.edit.url.startsWith('https') ? 443 : 80),
-        protocol: cmd.edit.url.startsWith('https') ? 'https' : 'http',
-        path: new URL(cmd.edit.url).pathname + new URL(cmd.edit.url).search,
-        headers: cmd.edit.headers, body: cmd.edit.body
-      } : undefined
+      edited: {
+        id: cmd.id,
+        method: cmd.edit.method,
+        url: cmd.edit.url,
+        host: u.hostname,
+        port: u.port ? Number(u.port) : (u.protocol === 'https:' ? 443 : 80),
+        protocol: u.protocol === 'https:' ? 'https' : 'http',
+        path: u.pathname + u.search,
+        headers: cmd.edit.headers,
+        body: cmd.edit.body
+      }
     })
   })
 
