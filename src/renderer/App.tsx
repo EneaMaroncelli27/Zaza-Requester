@@ -2,25 +2,12 @@ import React, { useEffect } from 'react'
 import Sidebar from './components/Sidebar'
 import RequestPanel from './components/RequestPanel'
 import ResponsePanel from './components/ResponsePanel'
+import InterceptApp from './intercept/InterceptApp'
 import { useStore } from './store/useStore'
 import { useResizableSplit } from './hooks/useResizableSplit'
 
-export default function App() {
-  const initStore = useStore((s) => s.initStore)
-  const initialized = useStore((s) => s.initialized)
+function BuilderView() {
   const { containerRef, ratio, dragging, onMouseDown } = useResizableSplit()
-
-  useEffect(() => {
-    initStore()
-  }, [initStore])
-
-  if (!initialized) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-app text-ink-dim">
-        Loading…
-      </div>
-    )
-  }
 
   return (
     <div className="flex h-screen bg-app overflow-hidden">
@@ -49,4 +36,45 @@ export default function App() {
       </div>
     </div>
   )
+}
+
+export default function App() {
+  const initStore = useStore((s) => s.initStore)
+  const initialized = useStore((s) => s.initialized)
+  const view = useStore((s) => s.view)
+  const setView = useStore((s) => s.setView)
+
+  useEffect(() => {
+    initStore()
+    // Subscribe here (not in initStore) with a disposer so StrictMode's
+    // double-invoke doesn't leave two handlers loading each request twice.
+    // A request sent from intercept also pulls the window back to the builder.
+    const off = window.api.onLoadRequest((req) => {
+      useStore.getState().importRequest(req)
+      useStore.getState().setView('builder')
+    })
+    return off
+  }, [initStore])
+
+  // Keep the native intercept browser overlay (owned by the main process) in
+  // sync with the current view. Switching to 'intercept' attaches + shows it;
+  // any other view hides it so the builder is fully visible.
+  useEffect(() => {
+    if (view === 'intercept') window.api.showIntercept()
+    else window.api.showBuilder()
+  }, [view])
+
+  if (!initialized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-app text-ink-dim">
+        Loading…
+      </div>
+    )
+  }
+
+  if (view === 'intercept') {
+    return <InterceptApp onBack={() => setView('builder')} />
+  }
+
+  return <BuilderView />
 }

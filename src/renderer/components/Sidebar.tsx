@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Clock, FolderOpen, ChevronDown, ChevronRight, Trash2, Plus } from 'lucide-react'
+import { Clock, FolderOpen, ChevronDown, ChevronRight, Trash2, Plus, Radio } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { methodText } from '../lib/methodTheme'
 import logo from '../assets/logo.png'
@@ -125,6 +125,13 @@ export default function Sidebar() {
         <img src={logo} alt="ZazaRequester logo" className="w-16 h-16 shrink-0" />
         <h1 className="text-sm font-bold text-slate-100 tracking-wide">ZazaRequester</h1>
       </div>
+
+      <button
+        onClick={() => useStore.getState().setView('intercept')}
+        className="flex items-center gap-2 mx-3 my-2 px-3 py-2 bg-slate-700 hover:bg-indigo-600 rounded text-sm text-slate-200 transition-colors"
+      >
+        <Radio size={14} /> Open Intercept
+      </button>
 
       <div className="flex-1 overflow-auto py-2">
         {/* History section */}

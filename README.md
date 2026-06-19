@@ -13,6 +13,12 @@ Built with Electron + React + TypeScript. Requests run by shelling out to the **
 - **HTML preview** — renders an HTML response as a real page in an isolated embedded browser (runs the site's own JS, loads its CSS — faithful for SSR and React/SPA sites).
 - **History & projects** — the last 5 requests are kept automatically; save any request permanently into a named project.
 - **Resizable** request/response split, persisted across launches.
+- **Intercept (beta)** — open a separate window with an embedded browser whose
+  HTTP/HTTPS traffic is captured live; optionally pause requests to edit headers
+  or body before they're sent, or push one into the request builder. Analytics,
+  telemetry, ad, and font/CDN noise (Google Analytics, doubleclick, fonts.gstatic,
+  …) is forwarded silently so the captured list stays signal — your own traffic
+  always shows. A **Clear** button empties the list in one click.
 
 ## Install
 
@@ -60,6 +66,15 @@ Electron 32 · electron-vite · React 18 · TypeScript · Tailwind CSS · Zustan
 
 - The HTML **Preview** re-fetches the URL with a `GET` in an isolated session to render it faithfully. For responses that depended on custom headers, auth, or a non-GET method, the exact bytes curl received are always on the **Body** tab.
 - History keeps the 5 most recent requests (rolling). Use a **project** to keep a request and its response forever.
+
+## How Intercept handles HTTPS
+
+To read HTTPS traffic, Intercept runs a local proxy and generates a private root
+CA stored under your app data directory. That CA is trusted **only** by the
+embedded browser's isolated session — it is never installed into your operating
+system or your real browser's trust store, and closing the app leaves no trust
+behind. Intercept only touches the dedicated in-app browser; your everyday
+browser is unaffected.
 
 ## License
 
