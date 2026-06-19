@@ -20,9 +20,12 @@ export class InterceptEngine {
     return this.pending.size
   }
 
-  handle(req: InterceptedRequest, timeoutMs: number): Promise<Resolution> {
+  // `pausable` lets the proxy mark which requests may block for editing when
+  // armed (top-level navigations and XHR/fetch). Static subresources are still
+  // captured but auto-forwarded so pages can actually render.
+  handle(req: InterceptedRequest, timeoutMs: number, pausable = true): Promise<Resolution> {
     this.onCapture(req)
-    if (!this.armed) return Promise.resolve({ action: 'forward' })
+    if (!this.armed || !pausable) return Promise.resolve({ action: 'forward' })
 
     return new Promise<Resolution>((resolve) => {
       const settle = (res: Resolution): void => {

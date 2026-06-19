@@ -37,3 +37,17 @@ test('auto-forwards a parked request after timeout', async () => {
   const res = await e.handle(req('c'), 20)
   expect(res.action).toBe('forward')
 })
+
+test('armed but not pausable: captures and auto-forwards without parking', async () => {
+  const e = new InterceptEngine()
+  e.armed = true
+  let captured = ''
+  let paused = ''
+  e.onCapture = (r) => { captured = r.id }
+  e.onPause = (r) => { paused = r.id }
+  const res = await e.handle(req('d'), 5000, false)
+  expect(res.action).toBe('forward')
+  expect(captured).toBe('d') // still logged
+  expect(paused).toBe('')    // never parked
+  expect(e.pendingCount()).toBe(0)
+})

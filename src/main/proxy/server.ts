@@ -32,6 +32,16 @@ function headerPairs(req: http.IncomingMessage): [string, string][] {
   return out
 }
 
+// Only pause (block for editing) the requests worth modifying: top-level
+// navigations and XHR/fetch. Static subresources (script/style/image/font/...)
+// are still captured but auto-forwarded so pages render. Chromium sends
+// Sec-Fetch-Dest on every request; absent (non-browser clients) -> pausable.
+function isPausable(req: http.IncomingMessage): boolean {
+  const dest = (req.headers['sec-fetch-dest'] as string | undefined)?.toLowerCase()
+  if (!dest) return true
+  return dest === 'document' || dest === 'iframe' || dest === 'frame' || dest === 'empty'
+}
+
 export class MitmProxy {
   readonly engine: InterceptEngine
   private ca: CaMaterial
@@ -117,7 +127,7 @@ export class MitmProxy {
       body
     }
 
-    const resolution = await this.engine.handle(intercepted, this.timeoutMs)
+    const resolution = await this.engine.handle(intercepted, this.timeoutMs, isPausable(req))
     if (resolution.action === 'drop') {
       res.socket?.destroy()
       return
