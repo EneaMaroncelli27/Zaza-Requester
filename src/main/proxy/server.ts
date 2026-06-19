@@ -8,6 +8,7 @@ import type { CaMaterial } from './ca'
 import { issueLeaf } from './ca'
 import type { InterceptEngine } from './interceptEngine'
 import type { InterceptedRequest } from './requestModel'
+import { isNoiseRequest } from './noiseHosts'
 
 export interface ProxyOptions {
   ca: CaMaterial
@@ -125,6 +126,13 @@ export class MitmProxy {
       path,
       headers: headerPairs(req),
       body
+    }
+
+    // Analytics/telemetry noise: forward silently — never captured, never
+    // paused — so pages still load but the table stays signal.
+    if (isNoiseRequest(host, path)) {
+      this.forward(intercepted, res)
+      return
     }
 
     const resolution = await this.engine.handle(intercepted, this.timeoutMs, isPausable(req))

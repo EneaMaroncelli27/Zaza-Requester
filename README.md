@@ -15,7 +15,10 @@ Built with Electron + React + TypeScript. Requests run by shelling out to the **
 - **Resizable** request/response split, persisted across launches.
 - **Intercept (beta)** — open a separate window with an embedded browser whose
   HTTP/HTTPS traffic is captured live; optionally pause requests to edit headers
-  or body before they're sent, or push one into the request builder.
+  or body before they're sent, or push one into the request builder. Analytics,
+  telemetry, ad, and font/CDN noise (Google Analytics, doubleclick, fonts.gstatic,
+  …) is forwarded silently so the captured list stays signal — your own traffic
+  always shows. A **Clear** button empties the list in one click.
 
 ## Install
 

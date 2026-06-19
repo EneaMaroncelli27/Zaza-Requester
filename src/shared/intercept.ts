@@ -24,8 +24,10 @@ export type ResolveCommand =
   | { id: string; action: 'drop' }
 
 export const IPC = {
-  // main window → main: open the intercept window
-  OPEN_INTERCEPT: 'intercept:open',
+  // renderer → main: switch the single window to the intercept view (attaches
+  // + shows the embedded browser overlay) or back to the builder view (hides it)
+  SHOW_INTERCEPT: 'intercept:show',
+  SHOW_BUILDER: 'intercept:showBuilder',
   // intercept renderer → main: arm/disarm + navigate + resolve
   SET_ARMED: 'intercept:setArmed',
   NAVIGATE: 'intercept:navigate',

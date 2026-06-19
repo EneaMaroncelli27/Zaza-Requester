@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import type { CapturedRequestDto } from '../../shared/intercept'
 import CapturedTable from './CapturedTable'
 import RequestEditor from './RequestEditor'
 
-export default function InterceptApp() {
+export default function InterceptApp({ onBack }: { onBack: () => void }) {
   const [rows, setRows] = useState<CapturedRequestDto[]>([])
   const [armed, setArmed] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -25,12 +26,20 @@ export default function InterceptApp() {
   const paused = selected?.paused ? selected : null
 
   const clearRow = (id: string) => setRows((prev) => prev.filter((r) => r.id !== id))
+  const clearAll = () => { setRows([]); setSelectedId(null) }
+  // Inline resolve straight from the row — forward unchanged or drop, no editor.
+  const forwardRow = (id: string) => { window.intercept.resolve({ id, action: 'forward' }); clearRow(id) }
+  const dropRow = (id: string) => { window.intercept.resolve({ id, action: 'drop' }); clearRow(id) }
 
   return (
     // top 60% is the embedded WebContentsView (drawn by main); this UI sits in
     // the bottom 40%, so pad the top to avoid drawing under the browser view.
     <div className="flex flex-col h-screen bg-app text-slate-200" style={{ paddingTop: '60vh' }}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700">
+        <button onClick={onBack} title="Back to builder"
+          className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-indigo-600 rounded text-sm text-slate-200 transition-colors">
+          <ArrowLeft size={14} /> Builder
+        </button>
         <input value={addr} onChange={(e) => setAddr(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') window.intercept.navigate(addr) }}
           className="flex-1 bg-slate-700 rounded px-2 py-1 font-mono text-sm outline-none" />
@@ -40,10 +49,15 @@ export default function InterceptApp() {
           className={`px-3 py-1 rounded text-sm text-white ${armed ? 'bg-amber-600' : 'bg-slate-600'}`}>
           Intercept: {armed ? 'ON' : 'OFF'}
         </button>
+        <button onClick={clearAll} disabled={rows.length === 0} title="Clear captured list"
+          className="px-3 py-1 bg-slate-700 hover:bg-rose-600 disabled:opacity-40 disabled:hover:bg-slate-700 rounded text-sm text-slate-200 transition-colors">
+          Clear
+        </button>
       </div>
       <div className="flex flex-1 min-h-0">
         <div className="w-1/2 border-r border-slate-700 min-h-0">
-          <CapturedTable rows={rows} selectedId={selectedId} onSelect={setSelectedId} />
+          <CapturedTable rows={rows} selectedId={selectedId} onSelect={setSelectedId}
+            onForward={forwardRow} onDrop={dropRow} />
         </div>
         <div className="w-1/2 min-h-0 overflow-auto">
           {paused ? (

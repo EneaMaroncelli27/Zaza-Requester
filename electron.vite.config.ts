@@ -24,8 +24,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          main: resolve('src/renderer/index.html'),
-          intercept: resolve('src/renderer/intercept.html')
+          main: resolve('src/renderer/index.html')
         }
       }
     },

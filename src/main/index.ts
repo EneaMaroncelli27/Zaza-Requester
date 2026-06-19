@@ -1,8 +1,8 @@
-import { app, BrowserWindow, nativeImage, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, WebContentsView, nativeImage, shell, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import iconPath from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
-import { startInterceptProxy, openInterceptWindow } from './interceptWindow'
+import { startInterceptProxy, createInterceptView } from './interceptWindow'
 import { IPC, type ResolveCommand } from '../shared/intercept'
 import { toRequestData } from './proxy/requestModel'
 
@@ -47,8 +47,16 @@ function createWindow(): BrowserWindow {
   if (process.platform === 'linux' && !appIcon.isEmpty()) win.setIcon(appIcon)
 
   // Show only once the renderer has painted — avoids a blank/black flash.
+  // Open maximized so the app always fills the screen on launch. On Linux the
+  // WM frequently ignores maximize() issued before the window is mapped, so we
+  // show first and then maximize.
   win.once('ready-to-show', () => {
     win.show()
+    win.maximize()
+    // Some Linux WMs ignore maximize(); fall back to filling the display's work
+    // area directly so the app reliably opens at full size.
+    const { workArea } = screen.getPrimaryDisplay()
+    if (win.getBounds().width < workArea.width) win.setBounds(workArea)
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -69,23 +77,40 @@ app.whenReady().then(async () => {
   const { proxy, port } = await startInterceptProxy()
   registerIpcHandlers()
 
-  let interceptWin: BrowserWindow | null = null
   let mainWin: BrowserWindow
+  // The embedded intercept browser. Created lazily on first intercept open, then
+  // toggled in/out of the single window as the user switches pages.
+  let interceptView: WebContentsView | null = null
+  let interceptVisible = false
 
-  ipcMain.on(IPC.OPEN_INTERCEPT, () => {
-    if (interceptWin && !interceptWin.isDestroyed()) {
-      interceptWin.focus()
-      return
+  // Position the intercept browser over the top 60% of the window; the bottom
+  // 40% is the intercept React UI (which pads its top to match).
+  const layoutInterceptView = (): void => {
+    if (!interceptView || !interceptVisible) return
+    const { width, height } = mainWin.getContentBounds()
+    interceptView.setBounds({ x: 0, y: 0, width, height: Math.round(height * 0.6) })
+  }
+
+  ipcMain.on(IPC.SHOW_INTERCEPT, () => {
+    if (!interceptView) interceptView = createInterceptView(mainWin, port, proxy)
+    if (!interceptVisible) {
+      mainWin.contentView.addChildView(interceptView)
+      interceptVisible = true
     }
-    interceptWin = openInterceptWindow(port, proxy)
-    interceptWin.on('closed', () => { interceptWin = null })
+    layoutInterceptView()
+  })
+
+  ipcMain.on(IPC.SHOW_BUILDER, () => {
+    if (interceptView && interceptVisible) {
+      mainWin.contentView.removeChildView(interceptView)
+      interceptVisible = false
+    }
   })
 
   ipcMain.on(IPC.SET_ARMED, (_e, armed: boolean) => { proxy.engine.armed = armed })
 
   ipcMain.on(IPC.NAVIGATE, (_e, url: string) => {
-    const view = (interceptWin as unknown as { _zrBrowserView?: { webContents: { loadURL: (u: string) => void } } })?._zrBrowserView
-    view?.webContents.loadURL(url)
+    interceptView?.webContents.loadURL(url)
   })
 
   ipcMain.on(IPC.RESOLVE, (_e, cmd: ResolveCommand) => {
@@ -116,11 +141,12 @@ app.whenReady().then(async () => {
 
   ipcMain.on(IPC.SEND_TO_BUILDER, (_e, req: { method: string; url: string; headers: [string,string][]; body: string }) => {
     const rd = toRequestData({ id: '', method: req.method, url: req.url, host: '', port: 0, protocol: 'http', path: '', headers: req.headers, body: req.body })
+    // Same window now — the renderer switches itself back to the builder view.
     mainWin?.webContents.send(IPC.ON_LOAD_REQUEST, rd)
-    mainWin?.focus()
   })
 
   mainWin = createWindow()
+  mainWin.on('resize', layoutInterceptView)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWin = createWindow()

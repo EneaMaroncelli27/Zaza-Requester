@@ -127,7 +127,7 @@ export default function Sidebar() {
       </div>
 
       <button
-        onClick={() => window.api.openIntercept()}
+        onClick={() => useStore.getState().setView('intercept')}
         className="flex items-center gap-2 mx-3 my-2 px-3 py-2 bg-slate-700 hover:bg-indigo-600 rounded text-sm text-slate-200 transition-colors"
       >
         <Radio size={14} /> Open Intercept

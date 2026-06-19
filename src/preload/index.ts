@@ -6,10 +6,11 @@ contextBridge.exposeInMainWorld('api', {
   execute: (req: RequestData) => ipcRenderer.invoke('curl:execute', req),
   readStore: () => ipcRenderer.invoke('store:read'),
   writeStore: (store: AppStore) => ipcRenderer.invoke('store:write', store),
-  // main window: open intercept + receive requests loaded from intercept.
-  // Listener registrars return a disposer so subscribers can clean up and
-  // avoid duplicate handlers (e.g. React StrictMode double-invoking effects).
-  openIntercept: () => ipcRenderer.send(IPC.OPEN_INTERCEPT),
+  // single-window view switching: show the intercept overlay or hide it (back
+  // to the builder). Listener registrars return a disposer so subscribers can
+  // clean up and avoid duplicate handlers (e.g. React StrictMode double-invoke).
+  showIntercept: () => ipcRenderer.send(IPC.SHOW_INTERCEPT),
+  showBuilder: () => ipcRenderer.send(IPC.SHOW_BUILDER),
   onLoadRequest: (cb: (req: RequestData) => void) => {
     const handler = (_e: unknown, req: RequestData): void => cb(req)
     ipcRenderer.on(IPC.ON_LOAD_REQUEST, handler)

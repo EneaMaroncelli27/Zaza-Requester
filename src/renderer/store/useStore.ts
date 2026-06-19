@@ -21,7 +21,12 @@ const DEFAULT_REQUEST: RequestData = {
   bodyType: 'none'
 }
 
+// Which page the single window is showing. 'intercept' shows the embedded
+// browser + capture UI; 'builder' is the curl request builder.
+export type AppView = 'builder' | 'intercept'
+
 interface StoreState {
+  view: AppView
   currentRequest: RequestData
   response: ResponseData | null
   // URL that actually produced the current response. The preview navigates to
@@ -40,6 +45,7 @@ interface StoreState {
   bodyVersion: number
 
   // Actions
+  setView: (view: AppView) => void
   setMethod: (method: HttpMethod) => void
   setUrl: (url: string) => void
   setHeaders: (headers: Header[]) => void
@@ -65,6 +71,7 @@ function persist(history: HistoryEntry[], projects: Project[]): void {
 }
 
 export const useStore = create<StoreState>((set, get) => ({
+  view: 'builder',
   currentRequest: { ...DEFAULT_REQUEST },
   response: null,
   responseUrl: null,
@@ -75,6 +82,8 @@ export const useStore = create<StoreState>((set, get) => ({
   showSaveModal: false,
   initialized: false,
   bodyVersion: 0,
+
+  setView: (view) => set({ view }),
 
   setMethod: (method) =>
     set((s) => ({ currentRequest: { ...s.currentRequest, method } })),
