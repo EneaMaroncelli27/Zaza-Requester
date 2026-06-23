@@ -29,6 +29,10 @@ interface StoreState {
   view: AppView
   currentRequest: RequestData
   response: ResponseData | null
+  // Snapshot of the request that produced the current response. Held separately
+  // from currentRequest so the Raw tab keeps showing the request as actually
+  // sent, even after the user edits the builder fields afterward.
+  responseRequest: RequestData | null
   // URL that actually produced the current response. The preview navigates to
   // this, NOT the live currentRequest.url, so editing the URL bar after a send
   // doesn't re-fetch on every keystroke.
@@ -74,6 +78,7 @@ export const useStore = create<StoreState>((set, get) => ({
   view: 'builder',
   currentRequest: { ...DEFAULT_REQUEST },
   response: null,
+  responseRequest: null,
   responseUrl: null,
   responseError: null,
   isLoading: false,
@@ -108,6 +113,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       currentRequest: { ...DEFAULT_REQUEST },
       response: null,
+      responseRequest: null,
       responseUrl: null,
       responseError: null,
       bodyVersion: s.bodyVersion + 1
@@ -117,6 +123,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       currentRequest: { ...entry.request },
       response: entry.response,
+      responseRequest: { ...entry.request },
       responseUrl: entry.request.url,
       bodyVersion: s.bodyVersion + 1
     })),
@@ -125,6 +132,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({
       currentRequest: { ...saved.request },
       response: null,
+      responseRequest: null,
       responseUrl: null,
       bodyVersion: s.bodyVersion + 1
     })),
@@ -134,6 +142,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!currentRequest.url.trim()) return
 
     const sentUrl = currentRequest.url
+    const sentRequest = { ...currentRequest }
     set({ isLoading: true, response: null, responseError: null })
 
     try {
@@ -149,7 +158,13 @@ export const useStore = create<StoreState>((set, get) => ({
       set((s) => {
         const history = [entry, ...s.history].slice(0, MAX_HISTORY)
         persist(history, s.projects)
-        return { response, responseUrl: sentUrl, isLoading: false, history }
+        return {
+          response,
+          responseRequest: sentRequest,
+          responseUrl: sentUrl,
+          isLoading: false,
+          history
+        }
       })
     } catch (err) {
       set({

@@ -21,7 +21,8 @@ function parseResponse(raw: string, durationMs: number): ResponseData {
       headers: [],
       body: raw.trim(),
       durationMs,
-      sizeBytes: Buffer.byteLength(raw, 'utf8')
+      sizeBytes: Buffer.byteLength(raw, 'utf8'),
+      raw: raw.trim()
     }
   }
 
@@ -30,6 +31,10 @@ function parseResponse(raw: string, durationMs: number): ResponseData {
     .slice(lastHeaderIdx + 1)
     .join('\n\n')
     .trim()
+
+  // Reconstruct the raw response from the final header block onward (dropping any
+  // earlier redirect/100-continue blocks) so what we show is one clean response.
+  const rawResponse = body ? `${headerSection}\r\n\r\n${body}` : headerSection
 
   const headerLines = headerSection.split(/\r\n|\n/)
   const statusLine = headerLines[0] || ''
@@ -55,7 +60,8 @@ function parseResponse(raw: string, durationMs: number): ResponseData {
     headers,
     body,
     durationMs,
-    sizeBytes: Buffer.byteLength(body, 'utf8')
+    sizeBytes: Buffer.byteLength(body, 'utf8'),
+    raw: rawResponse
   }
 }
 

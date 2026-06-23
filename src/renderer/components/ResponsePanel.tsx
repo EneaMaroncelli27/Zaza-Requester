@@ -6,6 +6,52 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { Copy, Check, ExternalLink } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { isHtmlResponse } from '../lib/previewDoc'
+import { buildRawRequest } from '@shared/rawHttp'
+import type { ResponseData, Header } from '@shared/types'
+
+/**
+ * Reconstruct the raw HTTP response for history entries persisted before the
+ * `raw` field existed: status line + headers + a blank line + the body.
+ */
+function rawResponseText(res: ResponseData): string {
+  if (res.raw) return res.raw
+  const head = [
+    `HTTP/1.1 ${res.status} ${res.statusText}`.trimEnd(),
+    ...res.headers.map((h: Header) => `${h.key}: ${h.value}`)
+  ].join('\r\n')
+  return res.body ? `${head}\r\n\r\n${res.body}` : head
+}
+
+/** A read-only monospace block with its own Copy button. */
+function CopyBlock({ label, text }: { label: string; text: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <div className="flex flex-col min-h-0 flex-1">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-hair bg-surface shrink-0">
+        <span className="text-xs font-semibold text-ink-dim uppercase tracking-wider">{label}</span>
+        <button
+          onClick={handleCopy}
+          className="ml-auto flex items-center gap-1.5 px-2 py-0.5 text-xs text-ink-dim hover:text-ink border border-hair hover:border-slate-500 rounded transition-colors"
+          title={`Copy raw ${label.toLowerCase()}`}
+        >
+          {copied ? (
+            <><Check size={12} className="text-emerald-400" /> Copied</>
+          ) : (
+            <><Copy size={12} /> Copy</>
+          )}
+        </button>
+      </div>
+      <pre className="flex-1 overflow-auto m-0 p-3 text-xs font-mono text-slate-200 whitespace-pre-wrap break-all select-text">
+        {text}
+      </pre>
+    </div>
+  )
+}
 
 /**
  * Renders the exact response body — the same bytes shown on the Body tab — in a
@@ -61,10 +107,11 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-type Tab = 'preview' | 'body' | 'headers'
+type Tab = 'preview' | 'body' | 'raw' | 'headers'
 
 export default function ResponsePanel() {
   const response = useStore((s) => s.response)
+  const responseRequest = useStore((s) => s.responseRequest)
   const responseError = useStore((s) => s.responseError)
   const isLoading = useStore((s) => s.isLoading)
   const [tab, setTab] = useState<Tab>('body')
@@ -105,9 +152,17 @@ export default function ResponsePanel() {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const tabs: Tab[] = isHtml ? ['preview', 'body', 'headers'] : ['body', 'headers']
+  const tabs: Tab[] = isHtml
+    ? ['preview', 'body', 'raw', 'headers']
+    : ['body', 'raw', 'headers']
   const tabLabel = (t: Tab): string =>
-    t === 'preview' ? 'Preview' : t === 'body' ? 'Body' : `Headers (${response?.headers.length ?? 0})`
+    t === 'preview'
+      ? 'Preview'
+      : t === 'body'
+        ? 'Body'
+        : t === 'raw'
+          ? 'Raw'
+          : `Headers (${response?.headers.length ?? 0})`
 
   return (
     <div className="flex flex-col h-full border-t border-hair">
@@ -171,6 +226,14 @@ export default function ResponsePanel() {
         {response && !isLoading && (
           <>
             {tab === 'preview' && <PagePreview body={response.body} />}
+            {tab === 'raw' && (
+              <div className="flex flex-col h-full divide-y divide-hair">
+                {responseRequest && (
+                  <CopyBlock label="Request" text={buildRawRequest(responseRequest)} />
+                )}
+                <CopyBlock label="Response" text={rawResponseText(response)} />
+              </div>
+            )}
             {tab === 'body' && (
               <CodeMirror
                 value={prettyBody}
