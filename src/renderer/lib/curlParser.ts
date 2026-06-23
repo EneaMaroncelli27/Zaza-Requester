@@ -128,6 +128,8 @@ export function parseCurl(input: string): RequestData {
       } catch {
         bodyType = 'raw'
       }
+    } else if (ctHeader?.value.includes('application/x-www-form-urlencoded')) {
+      bodyType = 'urlencoded'
     } else {
       bodyType = 'raw'
     }

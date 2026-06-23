@@ -4,7 +4,7 @@ export interface Header {
   enabled: boolean
 }
 
-export type BodyType = 'none' | 'raw' | 'json'
+export type BodyType = 'none' | 'raw' | 'json' | 'urlencoded'
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
 
 export interface RequestData {

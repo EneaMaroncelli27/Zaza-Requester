@@ -27,7 +27,9 @@ export function serializeRequestLineAndHeaders(req: InterceptedRequest): string 
 function guessBodyType(headers: [string, string][], body: string): BodyType {
   if (!body) return 'none'
   const ct = headers.find(([k]) => k.toLowerCase() === 'content-type')?.[1] ?? ''
-  return ct.includes('json') ? 'json' : 'raw'
+  if (ct.includes('json')) return 'json'
+  if (ct.includes('x-www-form-urlencoded')) return 'urlencoded'
+  return 'raw'
 }
 
 export function toRequestData(req: InterceptedRequest): RequestData {
