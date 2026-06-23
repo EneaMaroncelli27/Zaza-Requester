@@ -4,12 +4,14 @@ import { json } from '@codemirror/lang-json'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { Wand2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { urlencodedLanguage } from '../lib/urlencodedLang'
 import type { BodyType } from '@shared/types'
 
 const TABS: { label: string; value: BodyType }[] = [
   { label: 'None', value: 'none' },
   { label: 'Raw', value: 'raw' },
-  { label: 'JSON', value: 'json' }
+  { label: 'JSON', value: 'json' },
+  { label: 'URL Encoded', value: 'urlencoded' }
 ]
 
 type JsonState = 'empty' | 'valid' | 'invalid'
@@ -105,7 +107,13 @@ export default function BodyEditor() {
             value={body}
             onChange={setBody}
             theme={oneDark}
-            extensions={bodyType === 'json' ? [json()] : []}
+            extensions={
+              bodyType === 'json'
+                ? [json()]
+                : bodyType === 'urlencoded'
+                  ? [urlencodedLanguage]
+                  : []
+            }
             basicSetup={{ lineNumbers: true, foldGutter: bodyType === 'json' }}
             style={{ height: '100%' }}
             className="h-full"
