@@ -22,6 +22,10 @@ export interface ResponseData {
   body: string
   durationMs: number
   sizeBytes: number
+  // Full raw HTTP response exactly as received: status line + headers + a blank
+  // line + the (decompressed) body. Optional because history entries persisted
+  // before this field existed won't have it — consumers reconstruct as fallback.
+  raw?: string
 }
 
 export interface HistoryEntry {
