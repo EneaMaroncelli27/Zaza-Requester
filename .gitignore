@@ -9,3 +9,6 @@ release/
 
 # TS build cache
 *.tsbuildinfo
+
+# Claude / superpowers artifacts
+docs/superpowers/
